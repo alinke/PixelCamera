@@ -34,9 +34,12 @@ public final class R {
         public static final int splash=0x7f02000a;
     }
     public static final class id {
-        public static final int menu_about=0x7f090001;
-        public static final int menu_instructions=0x7f090002;
-        public static final int menu_prefs=0x7f090000;
+        public static final int menu_about=0x7f090004;
+        public static final int menu_instructions=0x7f090005;
+        public static final int menu_prefs=0x7f090003;
+        public static final int startcamerapreview=0x7f090000;
+        public static final int stopcamerapreview=0x7f090001;
+        public static final int surface_camera=0x7f090002;
     }
     public static final class layout {
         public static final int main=0x7f030000;

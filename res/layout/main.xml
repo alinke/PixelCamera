@@ -5,5 +5,25 @@
     android:layout_height="fill_parent"
     android:background="@drawable/backgroundblue"
     >
+    
+    <Button
+	android:id="@+id/startcamerapreview"  
+    android:layout_width="fill_parent" 
+    android:layout_height="wrap_content" 
+    android:text="Start"
+    />
+	<Button
+	android:id="@+id/stopcamerapreview"  
+    android:layout_width="fill_parent" 
+    android:layout_height="wrap_content" 
+    android:text="Stop"
+    />
+    
+ <SurfaceView android:id="@+id/surface_camera"
+
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent" >
+
+</SurfaceView>
 
 </LinearLayout>

@@ -6,8 +6,11 @@ import ioio.lib.util.BaseIOIOLooper;
 import ioio.lib.util.IOIOLooper;
 import ioio.lib.util.android.IOIOActivity;
 
+import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 
@@ -22,6 +25,7 @@ import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
@@ -43,12 +47,18 @@ import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
 import android.hardware.Camera.PreviewCallback;
 import android.hardware.Camera.Size;
+import android.hardware.Camera.CameraInfo;
 import android.os.Bundle;
 import android.os.Environment;
 import android.preference.PreferenceManager;
@@ -57,34 +67,36 @@ import android.view.Display;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.SurfaceHolder;
+import android.view.View;
+import android.view.SurfaceHolder.Callback;
+import android.view.SurfaceView;
+import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.GridView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class CameraToMatrixActivity extends IOIOActivity {
+@SuppressLint("NewApi")
+public class CameraToMatrixActivity extends IOIOActivity implements SurfaceHolder.Callback {
 	//private static ioio.lib.api.RgbLedMatrix matrix_;
 	//private static ioio.lib.api.RgbLedMatrix.Matrix KIND;  //have to do it this way because there is a matrix library conflict
-	private static final String TAG = "CameraToMatrixActivity";
+	private static final String TAG = "PixelVideo";
 	private Camera camera_;
 	private int height_;
 	private int width_;
-
-	//private short[] frame_ = new short[512];
 	private short[] rgb_;
-	
+
 	//private static GifView gifView;
 	private static ioio.lib.api.RgbLedMatrix matrix_;
 	private static ioio.lib.api.RgbLedMatrix.Matrix KIND;  //have to do it this way because there is a matrix library conflict
 	private static android.graphics.Matrix matrix2;
-    //private static final String TAG = "PixelPileDriver";	  	
-  	//private static short[] frame_ = new short[512];
 	private static short[] frame_;
   	public static final Bitmap.Config FAST_BITMAP_CONFIG = Bitmap.Config.RGB_565;
   	private static byte[] BitmapBytes;
   	private static InputStream BitmapInputStream;
   	private static Bitmap canvasBitmap;
-  	private static Bitmap IOIOBitmap;
   	private static Bitmap originalImage;
   	private static int width_original;
   	private static int height_original; 	  
@@ -94,60 +106,43 @@ public class CameraToMatrixActivity extends IOIOActivity {
   	private static int deviceFound = 0;
   	
   	private SharedPreferences prefs;
-	private String OKText;
 	private Resources resources;
 	private String app_ver;	
 	private int matrix_model;
 	private final String tag = "";	
-	private final String LOG_TAG = "PixelPileDriver";
-	private String imagePath;
+	private final String LOG_TAG = "PixelVideo";
 	private static int resizedFlag = 0;
-	
+
 	private ConnectTimer connectTimer; 	
-   // private static DecodedTimer decodedtimer; 
-	private Canvas canvas;
-	private static Canvas canvasIOIO;
-	
-	private String extStorageDirectory = Environment.getExternalStorageDirectory().toString();
-    private String basepath = extStorageDirectory;
-    private static String decodedDirPath =  Environment.getExternalStorageDirectory() + "/pixel/pixelpiledriver/decoded"; 
-    private String artpath = "/media";
     private static Context context;
     private Context frameContext;
-    private GridView sdcardImages;
-	
-	///********** Timers
-  //  private MediaScanTimer mediascanTimer; 	
+
+	///********** Timers 	
 	private boolean noSleep = false;	
 	private int countdownCounter;
 	private static final int countdownDuration = 30;
 	private Display display;
-//	private ImageAdapter imageAdapter;
-	private Cursor cursor;
-	private int size;  //the number of pictures
-	private ProgressDialog pDialog = null;
-	private int columnIndex; 
-	private TextView firstTimeSetup1_;
-	private TextView firstTimeSetup2_;
-	private TextView firstTimeInstructions_;
-	private TextView firstTimeSetupCounter_;
 	private boolean debug_;
 	private static int appAlreadyStarted = 0;
 	private int FPSOverride_ = 0;
 	private static int fps = 0;
 	private static int x = 0;
 	private static int u = 0;
-	private static String selectedFileName;
-	private static int selectedFileTotalFrames;
-	private static int selectedFileDelay;
 	private static int Playing = 0;
 	private static int selectedFileResolution;
 	private static int currentResolution;
+	private int cameraId;
+	private SurfaceView mSurfaceView;
+	private SurfaceHolder mSurfaceHolder;
+	//private Camera mCamera;
+	private boolean previewing;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.main);
+		
+		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT); //force only portrait mode
 		
 		this.prefs = PreferenceManager.getDefaultSharedPreferences(this);
         
@@ -172,47 +167,225 @@ public class CameraToMatrixActivity extends IOIOActivity {
         connectTimer = new ConnectTimer(30000,5000); //pop up a message if it's not connected by this timer
  		connectTimer.start(); //this timer will pop up a message box if the device is not found
  		
- 		context = getApplicationContext();
-		
-		
+ 		Button buttonStartCameraPreview = (Button)findViewById(R.id.startcamerapreview);
+        Button buttonStopCameraPreview = (Button)findViewById(R.id.stopcamerapreview);
+ 		
+        context = getApplicationContext();
+ 		getWindow().setFormat(PixelFormat.UNKNOWN);
+ 		mSurfaceView = (SurfaceView)findViewById(R.id.surface_camera);
+ 		mSurfaceHolder = mSurfaceView.getHolder();
+ 		mSurfaceHolder.addCallback(this);
+ 		mSurfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+ 		
+ 		 buttonStartCameraPreview.setOnClickListener(new Button.OnClickListener(){
+
+ 			@Override
+ 			public void onClick(View v) {
+ 				try {
+					startCam();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+ 				//}
+ 			}});
+         
+         buttonStopCameraPreview.setOnClickListener(new Button.OnClickListener(){
+
+ 			@Override
+ 			public void onClick(View v) {
+ 				// TODO Auto-generated method stub
+ 				if(camera_ != null && previewing){
+ 					camera_.stopPreview();
+ 					camera_.release();
+ 					camera_ = null;
+ 					
+ 					previewing = false;
+ 				}
+ 			}});
+	}
+	
+	public void surfaceCreated(SurfaceHolder holder) {
+
 		
 	}
 
-	@Override
-	protected void onStart() {
-		// Start the camera preview
-		camera_ = getCameraInstance();
-		Parameters params = camera_.getParameters();
-		params.setPreviewFormat(ImageFormat.NV21);
-		getSmallestPreviewSize(params);
-		params.setPreviewSize(width_, height_);
-		rgb_ = new short[width_ * height_];
-		// params.setFlashMode(Parameters.FLASH_MODE_TORCH);
-		params.setWhiteBalance(Parameters.WHITE_BALANCE_AUTO);
-		camera_.setParameters(params);
+		
+	public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
 
+	
+	}
+		
+	public void surfaceDestroyed(SurfaceHolder holder) {
+		camera_.stopPreview();
+		camera_.setPreviewCallback(null);
+		camera_.release();
+		
+		//camera_.stopPreview();
+		//camera_.release();
+		}
+	
+	private void startCam() throws IOException {
+		if(!previewing){
+				//camera_ = Camera.open();
+				camera_ = getCameraInstance();
+				if (camera_ != null){
+					
+					Parameters params = camera_.getParameters();
+					params.setPreviewFormat(ImageFormat.NV21);
+					getSmallestPreviewSize(params);
+					params.setPreviewSize(width_, height_);
+					rgb_ = new short[width_ * height_];
+					params.setWhiteBalance(Parameters.WHITE_BALANCE_AUTO);
+					camera_.setParameters(params);
+					
+					try {
+						camera_.setPreviewDisplay(mSurfaceHolder);
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				camera_.startPreview();
+				previewing = true;
+				streamVideo();
+				}
+		}
+	}
+	
+	//@Override
+	//protected void onStart() {
+    private void streamVideo() {
+		
 		camera_.setPreviewCallback(new PreviewCallback() {
 			@Override
-			public void onPreviewFrame(byte[] data, Camera camera) {
-				toRGB565(data, width_, height_, rgb_);
+			public void onPreviewFrame(byte[] data, Camera camera) {  //data is in yuv format
+				//showToast("went here");
+				ByteArrayOutputStream out = new ByteArrayOutputStream();
+				YuvImage yuv = new YuvImage(data, ImageFormat.NV21, width_, height_, null);
+				yuv.compressToJpeg(new Rect(0, 0, width_, height_), 50, out);
+				byte[] outputStream = out.toByteArray(); //we need to get the yuv format and convert to bmp
+				originalImage = BitmapFactory.decodeByteArray(out.toByteArray(),0,out.size()); //now we have bitmap format which we can actually use
+				WriteImagetoMatrix(originalImage);
+								
 				synchronized (frame_) {
-					for (int i = 0; i < 16; ++i) {
-						System.arraycopy(rgb_, i * width_, frame_, i * 32, 32);
-					}
+					loadImage();
 					frame_.notify();
-					//Toast.makeText(getBaseContext(), "Frame: " + frame_, Toast.LENGTH_LONG).show();
 				}
+				
 			}
 		});
-		camera_.startPreview();
-		super.onStart();
+	//	camera_.startPreview();
+		//super.onStart();
 	}
+	
+	private Camera openFrontFacingCameraGingerbread() {  //not used
+	    int cameraCount = 0;
+	    Camera cam = null;
+	    Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+	    cameraCount = Camera.getNumberOfCameras();
+	    for (int camIdx = 0; camIdx<cameraCount; camIdx++) {
+	        Camera.getCameraInfo(camIdx, cameraInfo);
+	        if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+	            try {
+	                cam = Camera.open(camIdx);
+	            } catch (RuntimeException e) {
+	                Log.e(LOG_TAG, "Camera failed to open: " + e.getLocalizedMessage());
+	            }
+	        }
+	    }
+	    return cam;
+	}
+
+ 
+  private int findFrontFacingCamera() {
+    int cameraId = -1;
+    // Search for the front facing camera
+   // int numberOfCameras = Camera.getNumberOfCameras();
+    int numberOfCameras = Camera.getNumberOfCameras();
+    for (int i = 0; i < numberOfCameras; i++) {
+      CameraInfo info = new CameraInfo();
+      Camera.getCameraInfo(i, info);
+      if (info.facing == CameraInfo.CAMERA_FACING_FRONT) {
+        Log.d(LOG_TAG, "Camera found");
+        cameraId = i;
+        break;
+      }
+    }
+    return cameraId;
+  }
+
+	
+	  private void WriteImagetoMatrix(Bitmap img) {  //here we'll take a PNG, BMP, or whatever and convert it to RGB565 via a canvas, also we'll re-size the image if necessary
+	    	
+	 		 //let's test if the image is 32x32 resolution
+			 width_original = img.getWidth();
+			 height_original = img.getHeight();
+			 
+			 //if not, no problem, we will re-size it on the fly here		 
+			 if (width_original != KIND.width || height_original != KIND.height) {
+				 resizedFlag = 1;
+				 scaleWidth = ((float) KIND.width) / width_original;
+	   		 	 scaleHeight = ((float) KIND.height) / height_original;
+		   		 // create matrix for the manipulation
+		   		 matrix2 = new Matrix();
+		   		 // resize the bit map
+		   		 matrix2.postScale(scaleWidth, scaleHeight);
+		   		 resizedBitmap = Bitmap.createBitmap(img, 0, 0, width_original, height_original, matrix2, true);
+		   		 canvasBitmap = Bitmap.createBitmap(KIND.width, KIND.height, Config.RGB_565); 
+		   		 Canvas canvas = new Canvas(canvasBitmap);
+		   		 canvas.drawRGB(0,0,0); //a black background
+		   	   	 canvas.drawBitmap(resizedBitmap, 0, 0, null);
+		   		 ByteBuffer buffer = ByteBuffer.allocate(KIND.width * KIND.height *2); //Create a new buffer
+		   		 canvasBitmap.copyPixelsToBuffer(buffer); //copy the bitmap 565 to the buffer		
+		   		 BitmapBytes = buffer.array(); //copy the buffer into the type array
+			 }
+			 else {  //if we went here, then the image was already the correct dimension so no need to re-size
+				 resizedFlag = 0;
+				 canvasBitmap = Bitmap.createBitmap(KIND.width, KIND.height, Config.RGB_565); 
+		   		 Canvas canvas = new Canvas(canvasBitmap);
+		   	   	 canvas.drawBitmap(img, 0, 0, null);
+		   		 ByteBuffer buffer = ByteBuffer.allocate(KIND.width * KIND.height *2); //Create a new buffer
+		   		 canvasBitmap.copyPixelsToBuffer(buffer); //copy the bitmap 565 to the buffer		
+		   		 BitmapBytes = buffer.array(); //copy the buffer into the type array
+			 }	
+	}
+
+	public void loadImage() {
+	 
+
+	 		int y = 0;
+	 		for (int i = 0; i < frame_.length; i++) {
+	 			frame_[i] = (short) (((short) BitmapBytes[y] & 0xFF) | (((short) BitmapBytes[y + 1] & 0xFF) << 8));
+	 			y = y + 2;
+	 		}
+	 		
+	 		//we're done with the images so let's recycle them to save memory
+		    canvasBitmap.recycle();
+		    originalImage.recycle(); 
+		    
+		    if ( resizedFlag == 1) {
+		    	resizedBitmap.recycle(); //only there if we had to resize an image
+		    }
+	 	}
+	
+	private byte[] resizeImage(byte[] input) { //not used
+	    Bitmap original = BitmapFactory.decodeByteArray(input , 0, input.length); //let's decode this byte stream
+	    Bitmap resized = Bitmap.createScaledBitmap(original, 32, 32, true);
+	    ByteArrayOutputStream blob = new ByteArrayOutputStream();
+	    resized.compress(Bitmap.CompressFormat.PNG, 0, blob);
+	    return blob.toByteArray();
+	}
+
 
 	/** Chooses the smallest supported preview size. */
 	private void getSmallestPreviewSize(Parameters params) {
 		List<Size> supportedPreviewSizes = params.getSupportedPreviewSizes();
 		Size minSize = null;
 		for (Size s : supportedPreviewSizes) {
+			//Log.e("al",String.valueOf(supportedPreviewSizes));
+			//Log.i(LOG_TAG, "number supported sizes: " + String.valueOf(supportedPreviewSizes));
+			Log.i(LOG_TAG, "supported width: " + String.valueOf(s.width));
+			Log.i(LOG_TAG, "supported height: " + String.valueOf(s.height));
 			if (minSize == null || s.width < minSize.width) {
 				minSize = s;
 			}
@@ -228,6 +401,8 @@ public class CameraToMatrixActivity extends IOIOActivity {
 		camera_.stopPreview();
 		camera_.setPreviewCallback(null);
 		camera_.release();
+		
+		
 	}
 	
 	 @Override
@@ -279,15 +454,6 @@ public class CameraToMatrixActivity extends IOIOActivity {
 	    	super.onActivityResult(reqCode, resCode, data);    	
 	    	setPreferences(); //very important to have this here, after the menu comes back this is called, we'll want to apply the new prefs without having to re-start the app
 	    	
-	    	//if (reqCode == 0 || reqCode == 1) //then we came back from the preferences menu so re-load all images from the sd card, 1 is a re-scan
-	    	//if (reqCode == 1)
-	    //	{
-	    		//imagedisplaydurationTimer.cancel(); //we may have been running a slideshow so kill it
-	    	    //pausebetweenimagesdurationTimer.cancel();
-	    	//	setupViews();
-	    	 //   setProgressBarIndeterminateVisibility(true); 
-	    	  //  loadImages();      
-	       // }
 	    } 
 	    
 	    private void setPreferences() //here is where we read the shared preferences into variables
@@ -380,17 +546,8 @@ public class CameraToMatrixActivity extends IOIOActivity {
 		  			showToast("Bluetooth Connected");
 	  			}
 	  			
-	  			//if (fps != 0) {  //then we're doing the FPS override which the user selected from settings
-	  			//	matrixdrawtimer.start(); 
-	  			//}
-	  			//else {
-	  			matrix_.frame(frame_); //write select pic to the frame since we didn't start the timer
-	  			//}
-	  			
+	  			matrix_.frame(frame_); 
 	  			appAlreadyStarted = 1;
-	  			
-	  			
-	  			
 	  		}
 
 	  
@@ -422,7 +579,6 @@ public class CameraToMatrixActivity extends IOIOActivity {
 				//alert.setTitle(getResources().getString(R.string.notFoundString)).setIcon(R.drawable.icon).setMessage(getResources().getString(R.string.bluetoothPairingString)).setNeutralButton(getResources().getString(R.string.OKText), null).show();	
 				showToast("Incompatbile firmware!");
 				showToast("This app won't work until you flash PIXEL with the correct firmware!");
-				showToast("You can use the IOIO Manager Android app to flash the correct firmware");
 				Log.e(LOG_TAG, "Incompatbile firmware!");
 			}
 	  		
@@ -438,7 +594,7 @@ public class CameraToMatrixActivity extends IOIOActivity {
 	 			@Override
 	 			public void run() {
 	 				Toast toast = Toast.makeText(CameraToMatrixActivity.this, msg, Toast.LENGTH_LONG);
-	                 toast.show();
+	                toast.show();
 	 			}
 	 		});
 	 	}  
@@ -481,46 +637,32 @@ public class CameraToMatrixActivity extends IOIOActivity {
 	 		alert.setTitle(getResources().getString(R.string.notFoundString)).setIcon(R.drawable.icon).setMessage(getResources().getString(R.string.bluetoothPairingString)).setNeutralButton(getResources().getString(R.string.OKText), null).show();	
 	     }
 
-	   
-	
-
-	//class IOIOThread extends BaseIOIOLooper {
-		//private RgbLedMatrix matrix_;
-
-		//@Override
-		//protected void setup() throws ConnectionLostException {
-		//	matrix_ = ioio_.openRgbLedMatrix();
-	//	}
-
-	//	@Override
-	//	public void loop() throws ConnectionLostException {
-		//	synchronized (frame_) {
-			//	try {
-				//	frame_.wait();
-				//	matrix_.frame(frame_);
-					
-			//	} catch (InterruptedException e) {
-			//	}
-		//	}
-	//	}
-//	}
-
-	//@Override
-//	protected IOIOLooper createIOIOLooper() {
-		//return new IOIOThread();
-	//}
-
 	private static Camera getCameraInstance() {
 		try {
+			Log.i(TAG, "Found camera");
 			return Camera.open();
+		//	showToast("got camera");
 		} catch (Exception e) {
 			Log.e(TAG, "Failed to open camera.", e);
+			//showToast("no camera found");
 		}
 		return null;
 	}
+	
+	/** A safe way to get an instance of the Camera object. *//*
+	public static Camera getCameraInstance(){
+	    Camera c = null;
+	    try {
+	        c = Camera.open(); // attempt to get a Camera instance
+	    }
+	    catch (Exception e){
+	    	Log.e(TAG, "Failed to open camera.", e);
+	    }
+	    return c; // returns null if camera is unavailable
+	}*/
 
 	// From: http://lanedetectionandroid.googlecode.com/svn-history/r8/trunk/tests/TestJniCall/src/org/siprop/opencv/Preview.java
-	static public void toRGB565(byte[] yuvs, int width, int height, short[] rgbs) {
+	static public void YuvtoRGB565(byte[] yuvs, int width, int height, short[] rgbs) {
 	    //the end of the luminance data
 	    final int lumEnd = width * height;
 	    //points to the next luminance value pair
@@ -568,4 +710,6 @@ public class CameraToMatrixActivity extends IOIOActivity {
 	        rgbs[outPtr++]  = (short) ((R >> 3) << 11 | (G >> 2) << 5 | (B >> 3));
 	    }
 	}
+
+	
 }
