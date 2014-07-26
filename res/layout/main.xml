@@ -10,13 +10,26 @@
 	android:id="@+id/startcamerapreview"  
     android:layout_width="fill_parent" 
     android:layout_height="wrap_content" 
-    android:text="Start"
+    android:text="Start Streaming"
     />
 	<Button
 	android:id="@+id/stopcamerapreview"  
     android:layout_width="fill_parent" 
     android:layout_height="wrap_content" 
-    android:text="Stop"
+    android:text="Stop Streaming"
+    />
+	
+	<Button
+	android:id="@+id/startcamerarecord"  
+    android:layout_width="fill_parent" 
+    android:layout_height="wrap_content" 
+    android:text="Start Recording"
+    />
+	<Button
+	android:id="@+id/stopcamerarecord"  
+    android:layout_width="fill_parent" 
+    android:layout_height="wrap_content" 
+    android:text="Stop Recording"
     />
     
  <SurfaceView android:id="@+id/surface_camera"

@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="hello">This app displays a smart portion of your camera on the RGB LED Matrix</string>
-    <string name="app_name">PIXEL CameraToMatrix</string>
+    <string name="app_name">PIXEL Video</string>
     
        <string name="menu_about_title">About</string> 
     <string name="menu_about_summary">http://ledpixelart.html\n\nDesigned by Open Gadgets LLC</string>
     <string name="versionString">Version</string> 
     
    <string name="oneTimeSetupString">One Time Setup: Copying animations to your SD card.</string> 
-   <string name="bluetoothPairingString">Please ensure Bluetooth pairing has been completed prior. The Bluetooth pairing code is: 4545."</string> 
+   <string name="bluetoothPairingString">Please ensure Bluetooth pairing has been completed prior. The Bluetooth pairing code is: 0000."</string> 
     
    
    <string name="menu_instructions_title">Instructions</string>
-   <string name="setupInstructionsString">Pair your Android device to PIXEL which will show up as \'IOIO\' in Bluetooth using code 4545.</string>
+   <string name="setupInstructionsString">Bluetooth pair to PIXEL using code 0000 or 4545 for PIXEL V1 frames.</string>
    <string name="setupInstructionsStringTitle">Instructions</string>   
      
-     
+     <string name="menu_btPair_title">Bluetooth Pair PIXEL | Code 0000 or 4545</string>  
     <string name="prefTitle">PIXEL Camera Settings</string>
     <string name="menu_prefs_title">Settings</string>
     <string name="prefSummary">PIXEL Camera Settings</string>
