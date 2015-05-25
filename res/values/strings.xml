@@ -10,6 +10,11 @@
    <string name="oneTimeSetupString">One Time Setup: Copying animations to your SD card.</string> 
    <string name="bluetoothPairingString">Please ensure Bluetooth pairing has been completed prior. The Bluetooth pairing code is: 0000."</string> 
     
+   <string name="AutoSelectPanel">Auto Select PIXEL / LED Panel</string>    
+    <string name="pref_AutoSelectPanel">pref_AutoSelectPanel</string>
+    <string name="pref_AutoSelectPanelDefault">true</string>
+    <string name="AutoSelectPanelSummary">Turn this off if you want to manually select the LED panel</string>
+   
    
    <string name="menu_instructions_title">Instructions</string>
    <string name="setupInstructionsString">Bluetooth pair to PIXEL using code 0000 or 4545 for PIXEL V1 frames.</string>
@@ -28,8 +33,8 @@
     <string name="notFoundString">PIXEL Not Found</string>   
    
     <string name="selected_matrix">selected_matrix</string>
-    <string name="matrix">LED Panel Selection</string>
-    <string name="matrixSummary">Select your LED Panel model</string>    
+    <string name="matrix">PIXEL Model Selection</string>
+    <string name="matrixSummary">Select your PIXEL Model / LED panel type</string>    
     <string name="dialogTitleMatrix">LED Panel Selection</string>
     <string name="matrix_default_value">3</string>   
     
@@ -40,7 +45,7 @@
     <string name="FPSOverrideDefault">0</string>  
     
     <string name="bluetooth_pair">Blueooth Pairing</string>
-    <string name="bluetooth_pairSummary">Shortcut to the Bluetooth settings screen. Pair to IOIO using code: 4545</string>
+    <string name="bluetooth_pairSummary">Shortcut to the Bluetooth settings screen. Pair to PIXEL using code: 0000</string>
     
     <string name="slideShowtitle">Slide Show Settings</string>
     <string name="slideShowtitleSummary">Slide Show Settings</string>
@@ -64,8 +69,7 @@
     <string name="loadingImagesPlsWait">Loading animations, just a moment&#8230;</string>
     
     <string name="stopSlideShowMessage">You\'re still in slide show mode, swipe from right to left to end the slide show and then you can select a single image</string>
-    <string name="loadingImagesPlsWaitTitle">Please Wait</string>
-    <string name="loadingImagesPlsWait">Loading animations, just a moment&#8230;</string>
+   
     
     <string name="debugMode">Debug Mode</string>    
     <string name="pref_debugMode">pref_debugMode</string>
